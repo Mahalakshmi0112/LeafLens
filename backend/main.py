@@ -123,20 +123,23 @@ async def predict(model_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
     
     try:
-        # Classify the plant type
-        plant_type = await classify_plant(image)
+        # Make sure the image is RGB (handles PNGs with transparency, grayscale, etc.)
+        image = image.convert("RGB")
 
-        # Check if the plant type matches the model's expected plant
-        model_to_plant = {
-            "model1": "Tomato",
-            "model2": "Potato",
-            "model3": "Grape",
-            "model4": "Corn"
-        }
+        # Optional: only verify the crop if a plant classifier model is available
+        if "plant_classifier" in MODELS:
+            plant_type = await classify_plant(image)
 
-        expected_plant_type = model_to_plant[model_id]
-        if plant_type != expected_plant_type:
-            raise HTTPException(status_code=400, detail=f"Uploaded image is of a {plant_type}, but model {model_id} expects a {expected_plant_type}.")
+            model_to_plant = {
+                "model1": "Tomato",
+                "model2": "Potato",
+                "model3": "Grape",
+                "model4": "Corn"
+            }
+
+            expected_plant_type = model_to_plant[model_id]
+            if plant_type != expected_plant_type:
+                raise HTTPException(status_code=400, detail=f"Uploaded image is of a {plant_type}, but model {model_id} expects a {expected_plant_type}.")
 
         # Resize image to match model input dimensions
         image = image.resize((224, 224))
