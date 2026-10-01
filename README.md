@@ -335,3 +335,64 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   <br/>
   <sub>© 2024 Plant Disease Detection Team. All rights reserved.</sub>
 </div>
+
+
+# AI-Driven Crop Disease Prediction Web App
+
+A web application where a farmer or user photographs a crop leaf, uploads it, and gets an instant
+diagnosis: the disease name, a confidence score, and practical treatment recommendations.
+
+## Why this project
+Crop diseases are often identified late through manual inspection, and agricultural experts are
+scarce in many rural areas. This app makes fast, low-cost diagnosis available to anyone with a
+phone camera and a browser.
+
+## Features
+- Leaf photo upload (gallery or camera) for Tomato, Potato, Grape and Corn
+- CNN-based disease classification with confidence score
+- Remedy recommendations: what to do now, organic and chemical options, prevention
+- Prediction history, disease library, and printable reports
+- Responsive, mobile-friendly UI
+
+## How it works
+Upload photo -> CNN (transfer learning) -> Disease + Confidence + Remedy
+
+| Layer | Technology |
+|---|---|
+| Frontend | React |
+| Inference service | Python, FastAPI, TensorFlow/Keras |
+| Models | Per-crop CNNs trained on PlantVillage-style leaf images (.h5) |
+
+## Supported classes
+21 classes across 4 crops: Tomato (10), Potato (3), Grape (4), Corn (4), each including a healthy class.
+
+## Getting started
+
+### Backend (Python 3.9 to 3.11)
+    cd backend
+    python -m venv venv
+    .\venv\Scripts\Activate.ps1
+    pip install -r requirements.txt
+    copy .env.example .env      # then set the model paths
+    python -m uvicorn main:app --reload --port 8000
+
+### Frontend (Node 18 LTS recommended)
+    cd frontend
+    npm install
+    npm start
+
+If you are on Node 17 or later and `npm start` fails with `ERR_OSSL_EVP_UNSUPPORTED`, set
+`NODE_OPTIONS=--openssl-legacy-provider` before starting.
+
+## Limitations
+Models are trained on controlled, PlantVillage-style images and can be less accurate on photos with
+busy backgrounds. Results are AI-assisted guidance, not a substitute for an agricultural expert.
+Always follow product labels and local agricultural advice before applying treatments.
+
+## Roadmap
+Node/Express + MongoDB layer (users, history, remedy data), multi-language and voice support,
+more crops, offline inference.
+
+## Credits and license
+Built on [mohamedhaitham22/Plant-Diseases-Detection-using-CNN](https://github.com/mohamedhaitham22/Plant-Diseases-Detection-using-CNN)
+(MIT). Released under the MIT License, see [LICENSE](LICENSE).

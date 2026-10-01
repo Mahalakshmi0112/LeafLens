@@ -1,0 +1,9 @@
+
+venv/
+venv-test/
+node_modules/
+build/
+__pycache__/
+*.pyc
+.env
+.vscode/
