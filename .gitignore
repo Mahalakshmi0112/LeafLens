@@ -1,9 +1,12 @@
 
 venv/
 venv-test/
+.venv/
 node_modules/
 build/
 __pycache__/
 *.pyc
 .env
+server/.env
+frontend/.env
 .vscode/

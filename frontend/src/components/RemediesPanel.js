@@ -148,8 +148,7 @@ const RemediesPanel = ({ details, resultId }) => {
   // Load saved checklist for this scan result
   useEffect(() => {
     if (resultId) {
-      const saved = getChecklistProgress(resultId);
-      setCheckedItems(saved || {});
+      getChecklistProgress(resultId).then((saved) => setCheckedItems(saved || {}));
     }
   }, [resultId]);
 
@@ -171,7 +170,7 @@ const RemediesPanel = ({ details, resultId }) => {
     };
     setCheckedItems(updated);
     if (resultId) {
-      saveChecklistProgress(resultId, updated);
+      saveChecklistProgress(resultId, updated).catch((error) => console.error("Could not save checklist progress", error));
     }
   };
 

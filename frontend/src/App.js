@@ -8,7 +8,11 @@ import Home from "./pages/Home";
 import Scan from "./pages/Scan";
 import History from "./pages/History";
 import Library from "./pages/Library";
+import Stats from "./pages/Stats";
+import AuthPage from "./pages/AuthPage";
 import { MODEL_TO_CROP } from "./data/diseases";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Backward-compatibility wrapper for older model routes
 const LegacyModelRedirect = () => {
@@ -20,6 +24,7 @@ const LegacyModelRedirect = () => {
 function App() {
   return (
     <AppThemeProvider>
+      <AuthProvider>
       <CssBaseline />
       <Router>
         <div className="app-wrapper">
@@ -29,7 +34,10 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/scan" element={<Scan />} />
               <Route path="/scan/:crop" element={<Scan />} />
-              <Route path="/history" element={<History />} />
+              <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+              <Route path="/stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />
+              <Route path="/login" element={<AuthPage mode="login" />} />
+              <Route path="/register" element={<AuthPage mode="register" />} />
               <Route path="/library" element={<Library />} />
 
               {/* Backward compatibility with legacy routes */}
@@ -43,6 +51,7 @@ function App() {
           <Footer />
         </div>
       </Router>
+      </AuthProvider>
     </AppThemeProvider>
   );
 }

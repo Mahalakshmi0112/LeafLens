@@ -80,19 +80,23 @@
 ```mermaid
 graph TB
     subgraph Frontend
-        A[React App] --> B[Model Selection]
-        B --> C[Image Upload]
-        C --> D[Results Display]
+      A[React App] --> B[Crop Selection and Image Upload]
+      B --> C[Results Display]
     end
     
-    subgraph Backend
-        E[FastAPI Server] --> F[TensorFlow Models]
-        F --> G[Image Processing]
-        G --> H[Disease Classification]
+    subgraph Node API
+      D[Express API] --> E[(Local MongoDB)]
+      D --> F[FastAPI Inference]
     end
     
-    C -->|HTTP Request| E
-    H -->|JSON Response| D
+    subgraph Python Inference
+      F --> G[TensorFlow Models]
+      G --> H[Disease Classification]
+    end
+
+    B -->|HTTP on :5000| D
+    H -->|JSON prediction| D
+    D -->|JSON response| C
 ```
 
 ## 🚀 Quick Start
@@ -103,11 +107,11 @@ graph TB
     <tr>
       <td align="center">
         <img src="https://img.icons8.com/color/48/000000/python.png"/><br/>
-        Python ≥ 3.8
+        Python 3.11
       </td>
       <td align="center">
         <img src="https://img.icons8.com/color/48/000000/nodejs.png"/><br/>
-        Node.js ≥ 14
+        Node.js ≥ 18
       </td>
       <td align="center">
         <img src="https://img.icons8.com/color/48/000000/npm.png"/><br/>
@@ -119,36 +123,26 @@ graph TB
 
 ### Backend Setup
 ```bash
-# Clone repository
-git clone https://github.com/mohamedhaitham22/Plant-Diseases-Detection-using-CNN.git
-cd plant-disease-detection
-
-# Setup Python environment
-python -m venv venv
-source venv/bin/activate  # Windows: .\venv\Scripts\activate
-
-# Install dependencies
+# Start FastAPI inference service
 cd backend
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your model paths
-
-# Start server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
-### Frontend Setup
+### Express API
 ```bash
-# Navigate to frontend
-cd frontend
-
-# Install dependencies
+cd server
 npm install
+npm run dev
+```
 
-# Start development server
-npm start
+### React Frontend
+```bash
+cd frontend
+npm install
+NODE_OPTIONS=--openssl-legacy-provider npm start
 ```
 
 ## 🌿 Supported Plants
@@ -363,23 +357,101 @@ Upload photo -> CNN (transfer learning) -> Disease + Confidence + Remedy
 | Inference service | Python, FastAPI, TensorFlow/Keras |
 | Models | Per-crop CNNs trained on PlantVillage-style leaf images (.h5) |
 
+## MERN architecture
+
+The application uses React, Express, and a local MongoDB database for user accounts and saved scans. The existing Python/FastAPI/TensorFlow service remains the inference service; the browser never calls it directly.
+
+```text
+React (localhost:3000) -> Express API (127.0.0.1:5001) -> MongoDB (127.0.0.1:27017)
+                                             |
+                                             +-> FastAPI/TensorFlow (127.0.0.1:8000)
+```
+
+- React calls `http://127.0.0.1:5001/api`, including for health checks and image predictions. Port 5000 is reserved by a macOS service on this machine.
+- Express stores bcrypt-hashed user credentials and authenticated scan history in the local `leaflens` MongoDB database.
+- Express forwards image uploads to FastAPI. Guest predictions are not saved to MongoDB; guests retain the existing browser-local history. Sign in to save predictions to the account.
+- Existing guest scan history can be imported into an account after login.
+- The MongoDB URI is local only: `mongodb://127.0.0.1:27017/leaflens`. No cloud database or Docker is used.
+
+### Local setup and start commands (macOS)
+
+Start MongoDB (if it is not already running) and verify the local server:
+
+```bash
+brew services start mongodb-community
+mongosh --quiet --eval 'db.runCommand({ ping: 1 })' 'mongodb://127.0.0.1:27017/admin'
+```
+
+Run each remaining service in a separate Terminal tab:
+
+```bash
+# 1. FastAPI inference service (Python 3.11; model paths are set in backend/.env)
+cd backend
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+```bash
+# 2. Express API
+cd server
+npm install
+npm run dev
+```
+
+```bash
+# 3. React development server
+cd frontend
+npm install
+NODE_OPTIONS=--openssl-legacy-provider npm start
+```
+
+Local server configuration is in the ignored `server/.env`; React reads `REACT_APP_API_BASE` from `frontend/.env`. FastAPI's model paths are configured in the ignored `backend/.env`.
+
+### API smoke-test examples
+
+Register and log in to get a JWT, then use it for the authenticated prediction:
+
+```bash
+curl -X POST http://127.0.0.1:5001/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"LeafLens User","email":"grower@example.com","password":"LocalPass123!"}'
+
+curl -X POST http://127.0.0.1:5001/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"grower@example.com","password":"LocalPass123!"}'
+
+curl http://127.0.0.1:5001/api/health
+
+curl -X POST http://127.0.0.1:5001/api/predict/tomato \
+  -H 'Authorization: Bearer YOUR_JWT_HERE' \
+  -F 'file=@/absolute/path/to/your-leaf-photo.jpg'
+```
+
+Replace `YOUR_JWT_HERE` with the `token` returned by login and the image path with an actual leaf photo. The repository does not include a standalone sample leaf image. The health response reports Express, MongoDB, and FastAPI separately; prediction also requires the FastAPI model files to load successfully.
+
 ## Supported classes
 21 classes across 4 crops: Tomato (10), Potato (3), Grape (4), Corn (4), each including a healthy class.
 
 ## Getting started
 
-### Backend (Python 3.9 to 3.11)
+### Backend (Python 3.11; TensorFlow 2.16.2)
     cd backend
-    python -m venv venv
-    .\venv\Scripts\Activate.ps1
+  python3.11 -m venv .venv
+  source .venv/bin/activate
     pip install -r requirements.txt
-    copy .env.example .env      # then set the model paths
-    python -m uvicorn main:app --reload --port 8000
+  python -m uvicorn main:app --reload --port 8000
 
-### Frontend (Node 18 LTS recommended)
+### Express API (port 5001)
+  cd server
+  npm install
+  npm run dev
+
+### Frontend (port 3000)
     cd frontend
     npm install
-    npm start
+  NODE_OPTIONS=--openssl-legacy-provider npm start
 
 If you are on Node 17 or later and `npm start` fails with `ERR_OSSL_EVP_UNSUPPORTED`, set
 `NODE_OPTIONS=--openssl-legacy-provider` before starting.
@@ -390,8 +462,7 @@ busy backgrounds. Results are AI-assisted guidance, not a substitute for an agri
 Always follow product labels and local agricultural advice before applying treatments.
 
 ## Roadmap
-Node/Express + MongoDB layer (users, history, remedy data), multi-language and voice support,
-more crops, offline inference.
+Multi-language and voice support, more crops, and offline inference.
 
 ## Credits and license
 Built on [mohamedhaitham22/Plant-Diseases-Detection-using-CNN](https://github.com/mohamedhaitham22/Plant-Diseases-Detection-using-CNN)

@@ -15,6 +15,8 @@ import CloudUploadIcon from '@material-ui/icons/CloudUpload';
 import ArrowBackIcon from '@material-ui/icons/ArrowBack';
 import cblogo from "./logo.PNG";
 import backgroundImage from "./backgroundImage.png";
+import { predictCropDisease } from "./services/api";
+import { MODEL_TO_CROP } from "./data/diseases";
 
 const useStyles = makeStyles((theme) => ({
   grow: {
@@ -93,20 +95,9 @@ const ImageUpload = () => {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      // Replace `localhost` with your computer's IP address
-      const res = await fetch(`http://localhost:8000/predict/${selectedModel}`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to process image. Please try again.");
-      }
-
-      const result = await res.json();
+      const cropId = MODEL_TO_CROP[selectedModel];
+      if (!cropId) throw new Error("Unknown crop model selected.");
+      const result = await predictCropDisease(cropId, file);
       setData(result);
     } catch (err) {
       setError(err.message);

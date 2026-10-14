@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { makeStyles } from "@material-ui/core/styles";
 import Container from "@material-ui/core/Container";
@@ -21,9 +21,9 @@ import CloudUploadIcon from "@material-ui/icons/CloudUpload";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import WarningIcon from "@material-ui/icons/Warning";
 
-import { CROPS, CROP_TO_MODEL, getDiseaseDetails } from "../data/diseases";
+import { CROPS, getDiseaseDetails } from "../data/diseases";
 import { predictCropDisease, checkBackendHealth } from "../services/api";
-import { saveScanToHistory, createThumbnail } from "../services/historyStorage";
+import { saveScanToHistory, createThumbnail, getScanHistory } from "../services/historyStorage";
 import ConfidenceGauge from "../components/ConfidenceGauge";
 import LeafLoader from "../components/LeafLoader";
 import PhotoTipsCard from "../components/PhotoTipsCard";
@@ -194,6 +194,7 @@ const Scan = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [isCheckingBackend, setIsCheckingBackend] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [savedScanId, setSavedScanId] = useState(null);
 
@@ -207,10 +208,19 @@ const Scan = () => {
     }
   }, [cropParam]);
 
-  // Check backend health on mount
-  useEffect(() => {
-    checkBackendHealth().then(setIsBackendOnline);
+  // Check Express, MongoDB, and the downstream FastAPI inference service.
+  const refreshBackendHealth = useCallback(async () => {
+    setIsCheckingBackend(true);
+    try {
+      setIsBackendOnline(await checkBackendHealth());
+    } finally {
+      setIsCheckingBackend(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshBackendHealth();
+  }, [refreshBackendHealth]);
 
   // Update crop and URL
   const handleCropChange = (cropId) => {
@@ -281,10 +291,8 @@ const Scan = () => {
     setErrorMessage(null);
     setAnalysisResult(null);
 
-    const modelId = CROP_TO_MODEL[selectedCrop] || "model1";
-
     try {
-      const response = await predictCropDisease(modelId, selectedFile);
+      const response = await predictCropDisease(selectedCrop, selectedFile);
       const details = getDiseaseDetails(response.class);
       const resultObj = {
         class: response.class,
@@ -294,9 +302,8 @@ const Scan = () => {
 
       setAnalysisResult(resultObj);
 
-      // Auto-save to LocalStorage History with generated thumbnail
       const thumbnailData = await createThumbnail(selectedFile);
-      const savedRecord = saveScanToHistory({
+      const record = {
         cropId: selectedCrop,
         cropName: CROPS[selectedCrop].name,
         rawLabel: response.class,
@@ -304,7 +311,17 @@ const Scan = () => {
         confidence: response.confidence,
         isHealthy: details.isHealthy,
         thumbnail: thumbnailData,
-      });
+        severity: details.severity || "",
+      };
+
+      // Authenticated predictions are already persisted by Express; guests retain local history.
+      let savedRecord = null;
+      if (localStorage.getItem("leaflens_token")) {
+        const records = await getScanHistory();
+        savedRecord = records.find((item) => item.rawLabel === response.class && item.cropId === selectedCrop) || records[0] || null;
+      } else {
+        savedRecord = await saveScanToHistory(record);
+      }
 
       if (savedRecord) {
         setSavedScanId(savedRecord.id);
@@ -382,16 +399,17 @@ const Scan = () => {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <WarningIcon style={{ color: "#D9822B" }} />
               <Typography variant="body2" style={{ color: "inherit", lineHeight: 1.4 }}>
-                <strong>Backend Server Not Detected:</strong> The AI diagnosis service is currently offline. Please ensure your FastAPI backend is running (<code style={{ background: "rgba(0,0,0,0.08)", padding: "2px 6px", borderRadius: 4 }}>python -m uvicorn main:app --reload --port 8000</code>).
+                <strong>Diagnosis services unavailable:</strong> The scan page checks Express and MongoDB on port 5001 and the FastAPI inference service on port 8000. Start any service that is offline, then check again.
               </Typography>
             </div>
             <Button
               size="small"
               variant="outlined"
-              onClick={() => checkBackendHealth().then(setIsBackendOnline)}
+              onClick={refreshBackendHealth}
+              disabled={isCheckingBackend}
               style={{ flexShrink: 0, fontWeight: 700 }}
             >
-              Check Again
+              {isCheckingBackend ? "Checking…" : "Check Again"}
             </Button>
           </div>
         )}

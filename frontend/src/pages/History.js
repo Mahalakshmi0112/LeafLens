@@ -138,28 +138,33 @@ const History = () => {
   const [selectedScan, setSelectedScan] = useState(null);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
-  const refreshHistory = () => {
-    const data = getScanHistory();
-    setHistoryList(data);
-    setMetrics(getHistoryMetrics());
+  const refreshHistory = async () => {
+    try {
+      const data = await getScanHistory();
+      setHistoryList(data);
+      setMetrics(getHistoryMetrics(data));
+    } catch (error) {
+      setHistoryList([]);
+      setMetrics(getHistoryMetrics([]));
+    }
   };
 
   useEffect(() => {
     refreshHistory();
   }, []);
 
-  const handleDeleteScan = (e, id) => {
+  const handleDeleteScan = async (e, id) => {
     e.stopPropagation();
-    deleteScanById(id);
-    refreshHistory();
+    await deleteScanById(id);
+    await refreshHistory();
     if (selectedScan && selectedScan.id === id) {
       setSelectedScan(null);
     }
   };
 
-  const handleClearAll = () => {
-    clearAllHistory();
-    refreshHistory();
+  const handleClearAll = async () => {
+    await clearAllHistory();
+    await refreshHistory();
     setConfirmClearOpen(false);
     setSelectedScan(null);
   };
@@ -200,7 +205,7 @@ const History = () => {
               Diagnostic History
             </Typography>
             <Typography variant="body1" color="textSecondary">
-              Review and track past leaf scans, remedy checklists, and crop health metrics.
+              Review and track your saved leaf scans, remedy checklists, and crop health metrics.
             </Typography>
           </div>
 
@@ -562,7 +567,7 @@ const History = () => {
           <DialogTitle>Clear All Diagnostic History?</DialogTitle>
           <DialogContent>
             <Typography variant="body1">
-              This will delete all saved leaf scans and checklist progress stored on this device. This action cannot be undone.
+              This will permanently delete all saved leaf scans and checklist progress from your account. This action cannot be undone.
             </Typography>
           </DialogContent>
           <DialogActions style={{ padding: 16 }}>

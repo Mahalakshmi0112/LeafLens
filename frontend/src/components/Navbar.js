@@ -24,6 +24,7 @@ import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import ErrorOutlineIcon from "@material-ui/icons/ErrorOutline";
 import { useAppTheme } from "../context/ThemeContext";
 import { checkBackendHealth } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
   appbar: {
@@ -164,6 +165,7 @@ const Navbar = () => {
   const classes = useStyles();
   const location = useLocation();
   const { isDark, toggleTheme, appConfig } = useAppTheme();
+  const { isAuthenticated, user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
 
@@ -187,6 +189,7 @@ const Navbar = () => {
     { label: "Home", path: "/", icon: <HomeIcon /> },
     { label: "Scan Leaf", path: "/scan", icon: <CameraAltIcon /> },
     { label: "History", path: "/history", icon: <HistoryIcon /> },
+    { label: "Stats", path: "/stats", icon: <HistoryIcon /> },
     { label: "Disease Library", path: "/library", icon: <MenuBookIcon /> },
   ];
 
@@ -237,8 +240,8 @@ const Navbar = () => {
           <Tooltip
             title={
               isBackendOnline
-                ? "Backend server is online and ready (FastAPI :8000)"
-                : "Backend is currently unreachable. Ensure uvicorn is running on port 8000."
+                ? "Express API, local MongoDB, and FastAPI are online"
+                : "One or more services (Express, MongoDB, FastAPI) is unreachable"
             }
             arrow
           >
@@ -250,11 +253,17 @@ const Navbar = () => {
                   <ErrorOutlineIcon style={{ fontSize: 16, color: "inherit" }} />
                 )
               }
-              label={isBackendOnline ? "AI Online" : "AI Offline"}
+              label={isBackendOnline ? "Services Online" : "Services Offline"}
               className={`${classes.statusChip} ${isBackendOnline ? classes.onlineStatus : classes.offlineStatus}`}
               size="small"
             />
           </Tooltip>
+
+          {isAuthenticated ? (
+            <Button color="inherit" onClick={logout} title={`Signed in as ${user?.email}`}>Log out</Button>
+          ) : (
+            <Button component={RouterLink} to="/login" color="inherit">Log in</Button>
+          )}
 
           <Tooltip title={isDark ? "Switch to Daytime Warm mode" : "Switch to Evening Dark mode"} arrow>
             <IconButton onClick={toggleTheme} color="inherit" aria-label="toggle theme" size="small">
@@ -314,6 +323,12 @@ const Navbar = () => {
               />
             </ListItem>
           ))}
+          {!isAuthenticated && <ListItem button component={RouterLink} to="/login" onClick={() => setMobileOpen(false)}>
+            <ListItemText primary="Log in / Register" />
+          </ListItem>}
+          {isAuthenticated && <ListItem button onClick={() => { logout(); setMobileOpen(false); }}>
+            <ListItemText primary={`Log out${user?.name ? ` (${user.name})` : ""}`} />
+          </ListItem>}
         </List>
       </Drawer>
     </AppBar>
