@@ -12,10 +12,29 @@ const healthRoutes = require('./routes/healthRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
-const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
+const allowedOrigins = [
+  ...(process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : []),
+  ...(process.env.CLIENT_ORIGINS ? process.env.CLIENT_ORIGINS.split(',') : []),
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+].map((origin) => origin.trim()).filter(Boolean);
+
 app.disable('x-powered-by');
 app.use(helmet());
-app.use(cors({ origin: clientOrigin, methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: 'draft-7', legacyHeaders: false, message: { message: 'Too many requests. Please try again later.' } }));

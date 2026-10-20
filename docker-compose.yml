@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: leaflens
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "8000"
+      HOST: "0.0.0.0"
+      ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      TOMATO_MODEL: "/app/Models/Tomato_Model/Model_T_v2.h5"
+      POTATO_MODEL: "/app/Models/Potato_Model/Model_P_v5.h5"
+      GRAPE_MODEL: "/app/Models/Grap_Model/Model_G_v2.h5"
+      CORN_MODEL: "/app/Models/Corn_Model/Model_C_v4.h5"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Models:/app/Models:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "5001"
+      HOST: "0.0.0.0"
+      MONGO_URI: "mongodb://mongo:27017/leaflens"
+      JWT_SECRET: "${JWT_SECRET:-local-only-development-secret-change-this-now}"
+      JWT_EXPIRES_IN: "7d"
+      FASTAPI_URL: "http://backend:8000"
+      CLIENT_ORIGIN: "http://localhost:3000"
+    ports:
+      - "5001:5001"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5001/api/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_BASE: "http://localhost:5001/api"
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:

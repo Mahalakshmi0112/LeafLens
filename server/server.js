@@ -14,10 +14,11 @@ async function start() {
   await connectDB();
 
   const PORT = Number(process.env.PORT) || 5001;
+  const HOST = process.env.HOST || '0.0.0.0';
 
-  app.listen(PORT, '127.0.0.1', () => {
+  app.listen(PORT, HOST, () => {
     console.log(
-      `LeafLens Express API listening at http://127.0.0.1:${PORT}`
+      `LeafLens Express API listening at http://${HOST}:${PORT}`
     );
   });
 }

@@ -456,6 +456,40 @@ Replace `YOUR_JWT_HERE` with the `token` returned by login and the image path wi
 If you are on Node 17 or later and `npm start` fails with `ERR_OSSL_EVP_UNSUPPORTED`, set
 `NODE_OPTIONS=--openssl-legacy-provider` before starting.
 
+## Deployment and Docker
+
+This repository is already structured for the deployment targets requested by the project:
+
+- Vercel for the React frontend (`frontend` app)
+- Render for the Express API (`server` app)
+- Render for the FastAPI inference service (repository root; model files are in the sibling `Models` directory)
+- MongoDB Atlas for the production database
+- Docker Compose for a local fallback stack with a local MongoDB container
+
+### Cloud environment variables
+
+Set these in each deployment target rather than relying on local machine-only values:
+
+- Frontend (`Vercel`): `REACT_APP_API_BASE=https://your-express-api.onrender.com/api`
+- Express (`Render`): `PORT=5001`, `HOST=0.0.0.0`, `MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/leaflens`, `JWT_SECRET=<32+ random chars>`, `JWT_EXPIRES_IN=7d`, `FASTAPI_URL=https://your-fastapi-service.onrender.com`, `CLIENT_ORIGIN=https://your-frontend.vercel.app`
+- FastAPI (`Render`): `PORT` (provided by Render), `HOST=0.0.0.0`, `TOMATO_MODEL=Models/Tomato_Model/Model_T_v2.h5`, `POTATO_MODEL=Models/Potato_Model/Model_P_v5.h5`, `GRAPE_MODEL=Models/Grap_Model/Model_G_v2.h5`, `CORN_MODEL=Models/Corn_Model/Model_C_v4.h5`
+
+Do not commit `.env` files or database credentials. Place secrets in the hosting provider's environment settings.
+
+For the FastAPI service, configure the Render root directory as the repository root (leave it blank). Its build command is `pip install -r backend/requirements.txt` and its start command is `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`. Setting the root directory to `backend` would exclude the model files from the build context.
+
+### Local Docker Compose
+
+A root `docker-compose.yml` is included to run the app locally with a MongoDB container and the existing app services. Use the Docker Compose service names inside the network instead of `localhost` for container-to-container communication.
+
+Example:
+
+```bash
+docker compose up --build
+```
+
+The frontend will be available on `http://localhost:3000`, the Express API on `http://localhost:5001`, the FastAPI service on `http://localhost:8000`, and MongoDB on `mongodb://localhost:27017` for local inspection.
+
 ## Limitations
 Models are trained on controlled, PlantVillage-style images and can be less accurate on photos with
 busy backgrounds. Results are AI-assisted guidance, not a substitute for an agricultural expert.
